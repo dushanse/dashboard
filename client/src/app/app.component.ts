@@ -4,6 +4,7 @@ import { AveragePerMinComponent } from './average-per-min/average-per-min.compon
 import { LastHourAvgComponent } from './last-hour-avg/last-hour-avg.component';
 import { MaxValueComponent } from './max-value/max-value.component';
 
+
 @Component({
   selector: 'app-root',
   standalone: true,
@@ -12,5 +13,4 @@ import { MaxValueComponent } from './max-value/max-value.component';
   styleUrl: './app.component.scss'
 })
 export class AppComponent {
-  title = 'client';
 }
