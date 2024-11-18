@@ -10,6 +10,7 @@ export class ProductService {
   ) {}
 
   async getProd() {
+    const timestamp = Date.now();
     const product = Math.floor(Math.random() * 11) + 20;
     try {
       await this._kafka.produce({
@@ -22,7 +23,7 @@ export class ProductService {
       });
       console.log(`Product ${product} sent to Kafka successfully.`);
 
-      const key = `ProductService:Product:${product}`;
+      const key = `ProductService:Product:${timestamp}`;
       await this.cache.cacheList(key, [{ Product: product }], 7200);
       console.log(`Product ${product} cached successfully.`);
       return product;
@@ -77,7 +78,7 @@ export class ProductService {
         return null;
       }
 
-      const avgProd = prods.reduce((sum, temp) => sum + temp, 0) / prods.length;
+      const avgProd = parseFloat((prods.reduce((sum, temp) => sum + temp, 0) / prods.length).toFixed(2));
       console.log(`Average product for the last hour: ${avgProd}`);
 
       return avgProd;

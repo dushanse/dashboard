@@ -11,19 +11,20 @@ export class TemperatureService {
 
   async getTemp() {
     const temp = Math.floor(Math.random() * 11) + 20;
+    const timestamp = Date.now();
     try {
       await this._kafka.produce({
         topic: 'temperature-topic',
         messages: [
           {
-            value: JSON.stringify({ temperature: temp }),
+            value: JSON.stringify({ temperature: temp, timestamp }),
           },
         ],
       });
       console.log(`Temperature ${temp} sent to Kafka successfully.`);
 
-      const key = `TemperatureService:temperature:${temp}`;
-      await this.cache.cacheList(key, [{ temperature: temp }], 7200);
+      const key = `TemperatureService:temperature:${timestamp}`;
+      await this.cache.cacheList(key, [{ temperature: temp, timestamp }], 7200);
       console.log(`Temperature ${temp} cached successfully.`);
 
       return temp;
@@ -78,7 +79,7 @@ export class TemperatureService {
         return null;
       }
 
-      const avgTemp = temps.reduce((sum, temp) => sum + temp, 0) / temps.length;
+      const avgTemp = parseFloat((temps.reduce((sum, temp) => sum + temp, 0) / temps.length).toFixed(2));
       console.log(`Average temperature for the last hour: ${avgTemp}`);
 
       return avgTemp;

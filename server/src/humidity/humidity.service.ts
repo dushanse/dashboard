@@ -10,19 +10,20 @@ export class HumidityService {
   ) {}
 
   async getHumid() {
+    const timestamp = Date.now();
     const humid = Math.floor(Math.random() * 11) + 20;
     try {
       await this._kafka.produce({
         topic: 'humidity-topic',
         messages: [
           {
-            value: JSON.stringify({ humidity: humid }),
+            value: JSON.stringify({ humidity: humid, timestamp }),
           },
         ],
       });
       console.log(`Humidity ${humid} sent to Kafka successfully.`);
 
-      const key = `HumidityService:Humidity:${humid}`;
+      const key = `HumidityService:Humidity:${timestamp}`;
       await this.cache.cacheList(key, [{ Humidity: humid }], 7200);
       console.log(`Humidity ${humid} cached successfully.`);
       return humid;
@@ -67,7 +68,7 @@ export class HumidityService {
         if (timestamp >= oneHourAgo) {
           const data = await this.cache.getCache(key);
           if (data.length) {
-            temps.push(data[0].humidity);
+            temps.push(data[0].Humidity);
           }
         }
       }
@@ -77,7 +78,7 @@ export class HumidityService {
         return null;
       }
 
-      const avgTemp = temps.reduce((sum, temp) => sum + temp, 0) / temps.length;
+      const avgTemp = parseFloat((temps.reduce((sum, temp) => sum + temp, 0) / temps.length).toFixed(2));
       console.log(`Average humidity for the last hour: ${avgTemp}`);
 
       return avgTemp;
