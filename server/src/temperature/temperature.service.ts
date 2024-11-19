@@ -1,13 +1,34 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, OnModuleInit } from '@nestjs/common';
+import { ConsumerService } from 'src/kafka/consumer/consumer.service';
 import { ProducerService } from 'src/kafka/producer/producer.service';
 import { UtilService } from 'src/util/util.service';
 
 @Injectable()
-export class TemperatureService {
+export class TemperatureService implements OnModuleInit {
   constructor(
     private readonly _kafka: ProducerService,
     private readonly cache: UtilService,
+    private readonly _consumer: ConsumerService
   ) {}
+
+  async onModuleInit() {
+    await this._consumer.consume(
+      'temperature-group',
+      { topic: 'temperature-topic' },
+      {
+        eachMessage: async ({ message }) => {
+          await this.handleMessage(message);
+        },
+      },
+    );
+  }
+
+  private async handleMessage(message: any) {
+    const temperatureData = JSON.parse(message.value.toString());
+    const key = `TemperatureService:temperature:${temperatureData.timestamp}`;
+    await this.cache.cacheList(key, [temperatureData], 7200);
+    console.log(`Cached temperature data: ${temperatureData.temperature} at ${temperatureData.timestamp}`)
+  }
 
   async getTemp() {
     const temp = Math.floor(Math.random() * 11) + 20;
@@ -22,10 +43,6 @@ export class TemperatureService {
         ],
       });
       console.log(`Temperature ${temp} sent to Kafka successfully.`);
-
-      const key = `TemperatureService:temperature:${timestamp}`;
-      await this.cache.cacheList(key, [{ temperature: temp, timestamp }], 7200);
-      console.log(`Temperature ${temp} cached successfully.`);
 
       return temp;
     } catch (error) {

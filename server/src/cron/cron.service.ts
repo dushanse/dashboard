@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { Cron, CronExpression } from '@nestjs/schedule';
 import { HumidityService } from 'src/humidity/humidity.service';
+import { ConsumerService } from 'src/kafka/consumer/consumer.service';
 import { ProductService } from 'src/product/product.service';
 import { TemperatureService } from 'src/temperature/temperature.service';
 

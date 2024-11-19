@@ -1,13 +1,34 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, OnModuleInit } from '@nestjs/common';
+import { ConsumerService } from 'src/kafka/consumer/consumer.service';
 import { ProducerService } from 'src/kafka/producer/producer.service';
 import { UtilService } from 'src/util/util.service';
 
 @Injectable()
-export class HumidityService {
+export class HumidityService implements OnModuleInit {
   constructor(
     private readonly _kafka: ProducerService,
+    private readonly _consumer: ConsumerService,
     private readonly cache: UtilService,
   ) {}
+
+  async onModuleInit() {
+    await this._consumer.consume(
+      'humidity-group',
+      { topic: 'humidity-topic' },
+      {
+        eachMessage: async ({ message }) => {
+          await this.handleMessage(message);
+        },
+      },
+    );
+  }
+
+  private async handleMessage(message: any) {
+    const humidityData = JSON.parse(message.value.toString());
+    const key = `HumidityService:Humidity:${humidityData.timestamp}`;
+    await this.cache.cacheList(key, [humidityData], 7200);
+    console.log(`Cached humidity data: ${humidityData.humidity} at ${humidityData.timestamp}`)
+  }
 
   async getHumid() {
     const timestamp = Date.now();
@@ -22,10 +43,6 @@ export class HumidityService {
         ],
       });
       console.log(`Humidity ${humid} sent to Kafka successfully.`);
-
-      const key = `HumidityService:Humidity:${timestamp}`;
-      await this.cache.cacheList(key, [{ Humidity: humid }], 7200);
-      console.log(`Humidity ${humid} cached successfully.`);
       return humid;
     } catch (error) {
       console.error('Failed to send Humidity to Kafka:', error);
@@ -68,7 +85,7 @@ export class HumidityService {
         if (timestamp >= oneHourAgo) {
           const data = await this.cache.getCache(key);
           if (data.length) {
-            temps.push(data[0].Humidity);
+            temps.push(data[0].humidity);
           }
         }
       }
@@ -103,7 +120,7 @@ export class HumidityService {
       for (const key of keys) {
         const data = await this.cache.getCache(key);
         if (data.length) {
-          const humid = data[0].Humidity;
+          const humid = data[0].humidity;
           if (humid > maxHumid) {
             maxHumid = humid;
           }

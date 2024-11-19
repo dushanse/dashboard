@@ -1,13 +1,34 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, OnModuleInit } from '@nestjs/common';
+import { ConsumerService } from 'src/kafka/consumer/consumer.service';
 import { ProducerService } from 'src/kafka/producer/producer.service';
 import { UtilService } from 'src/util/util.service';
 
 @Injectable()
-export class ProductService {
+export class ProductService implements OnModuleInit {
   constructor(
     private readonly _kafka: ProducerService,
     private readonly cache: UtilService,
+    private readonly _consumer: ConsumerService
   ) {}
+
+  async onModuleInit() {
+    await this._consumer.consume(
+      'product-group',
+      { topic: 'Product-topic' },
+      {
+        eachMessage: async ({ message }) => {
+          await this.handleMessage(message);
+        },
+      },
+    );
+  }
+
+  private async handleMessage(message: any) {
+    const productData = JSON.parse(message.value.toString());
+    const key = `ProductService:Product:${productData.timestamp}`;
+    await this.cache.cacheList(key, [productData], 7200);
+    console.log(`Cached product data: ${productData.Product} at ${productData.timestamp}`)
+  }
 
   async getProd() {
     const timestamp = Date.now();
@@ -17,15 +38,11 @@ export class ProductService {
         topic: 'Product-topic',
         messages: [
           {
-            value: JSON.stringify({ Product: product }),
+            value: JSON.stringify({ Product: product, timestamp }),
           },
         ],
       });
       console.log(`Product ${product} sent to Kafka successfully.`);
-
-      const key = `ProductService:Product:${timestamp}`;
-      await this.cache.cacheList(key, [{ Product: product }], 7200);
-      console.log(`Product ${product} cached successfully.`);
       return product;
     } catch (error) {
       console.error('Failed to send Product to Kafka:', error);
